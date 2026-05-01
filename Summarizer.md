@@ -2,6 +2,8 @@
 
 Single narrative from kickoff through shipping: **what** we built, **why** each choice exists, and **what to admit** in interviews. The **public landing page** for recruiters and hiring managers is the repository root [`README.md`](./README.md); this file goes one level deeper.
 
+**Public repo:** [github.com/G26karthik/grounded-support-triage](https://github.com/G26karthik/grounded-support-triage)
+
 ---
 
 ## 1. Problem we solved
