@@ -4,7 +4,7 @@ End-to-end system I built that ingests support tickets, routes them across multi
 
 It is designed with the kind of structure you’d expect in a real internal tool: explicit workflow steps, observability, rate limiting, and an escape hatch when the documentation does not support a safe answer.
 
-**Author:** G Karthik Koundinya · [github.com/G26karthik](https://github.com/G26karthik)
+**Author:** G Karthik Koundinya · **[grounded-support-triage](https://github.com/G26karthik/grounded-support-triage)**
 
 ---
 
@@ -68,8 +68,8 @@ Typical LLM usage: **0–2 calls per ticket** on the main paths (details in [`co
 ## Quick start
 
 ```bash
-git clone https://github.com/G26karthik/HRO.git
-cd HRO
+git clone https://github.com/G26karthik/grounded-support-triage.git
+cd grounded-support-triage
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r code/requirements.txt
