@@ -1,24 +1,24 @@
 # Multi-domain corpus-grounded support triage
 
-A **production-oriented reference implementation** of a multi-tenant support triage agent: it reads unstructured tickets, routes them across independent **knowledge domains**, retrieves evidence from a **local markdown corpus** (no live web calls for answers), and answers or escalates with **audit-friendly** traces.
+End-to-end system I built that ingests support tickets, routes them across multiple product domains, retrieves evidence from a **local markdown knowledge base** (no live web calls for answers), and produces **grounded replies** or **escalations** with **traceable** decisions.
 
-Originally shipped as a high-intensity sprint; this repository is maintained as a **portfolio / reusable baseline** for teams who need **grounded** LLM replies over **internal help centers** or **exported vendor docs**—the same patterns apply to internal runbooks, policy libraries, and gated SaaS help content.
+It is designed with the kind of structure you’d expect in a real internal tool: explicit workflow steps, observability, rate limiting, and an escape hatch when the documentation does not support a safe answer.
 
-**Suggested display name for the repo:** `grounded-support-triage` or `corpus-triage-engine` (GitHub slug is optional; current clone: [`G26karthik/HRO`](https://github.com/G26karthik/HRO)).
+**Author:** Karthik · [github.com/G26karthik/HRO](https://github.com/G26karthik/HRO)
 
 ---
 
-## What you get
+## What I implemented
 
-| Capability | Detail |
-|------------|--------|
-| **Grounding** | Answers constrained to retrieved chunks from `data/`; programmatic critic for citations + “hard facts” (URLs, phones, money). |
-| **Safety & cost** | Regex fast-path → **0** LLM calls for trivial/malicious patterns; combined safety+triage in **1** call; specialists only when needed. |
-| **Multi-tenant** | Per-company corpora (here: HackerRank, Claude, Visa) with shared orchestration code. |
-| **Retrieval** | Hybrid **BM25 + dense** (BGE-small), z-score fusion, **conditional** cross-encoder rerank; Visa uses **full-corpus-in-prompt** (small KB). |
-| **Orchestration** | **LangGraph** `StateGraph`—named nodes, explicit branches, replayable `trace.jsonl` per run. |
-| **Providers** | **Anthropic** (default: Haiku triage, Sonnet specialists) with **Gemini** pluggable via `HRO_BACKEND=gemini`. |
-| **Ops** | Env-only secrets, sliding-window rate limiter, async batch runner with bounded concurrency. |
+| Area | What it does |
+|------|----------------|
+| **Orchestration** | **LangGraph** `StateGraph`: fast path → triage → retrieve → specialist → **programmatic critic** → composer. Each step is a named node with spans written to `code/runs/<timestamp>/`. |
+| **Cost & latency** | Regex **fast path** avoids LLM calls for trivial inputs and obvious unsafe patterns. **One** structured **triage** call (safety + routing + retrieval query). **One specialist** call when answering from the corpus. **No LLM critic**—verification is deterministic. |
+| **Retrieval** | **Hybrid** **BM25** + **dense embeddings** (`BAAI/bge-small-en-v1.5`), z-score fusion, optional **cross-encoder rerank** when scores are ambiguous. **Visa** uses the full small corpus in-context; **HackerRank** and **Claude** use top‑k chunks. |
+| **Grounding** | Specialists must cite chunk IDs; the **critic** checks citations and matches “hard facts” (URLs, phone numbers, email, currency) against cited text. Failures **downgrade to escalation** with a safe customer message. |
+| **LLM layer** | **Anthropic** by default (**Haiku** triage, **Sonnet** specialists), structured outputs via **tool use**. **Gemini** supported behind `HRO_BACKEND=gemini` for portability. Sliding-window **rate limiter** + retries on transient errors. |
+| **I/O & evaluation** | **Click** CLI: `run`, `eval`, `rebuild-index`, `trace`. **Eval harness** runs the labelled sample and reports accuracy, confusion matrices, and latency summaries. |
+| **Configuration** | Central thresholds and paths in `hro/config.py`; prompts in `prompts/`; product-area mapping in `hro/corpus/product_area_map.json`. Secrets **only** via environment / `.env` (see `code/.env.example`). |
 
 ---
 
@@ -45,7 +45,7 @@ flowchart LR
   CO --> OUT[output.csv + trace]
 ```
 
-**LLM calls per ticket:** typically **0–2** on the hot path (see `code/README.md`).
+Typical LLM usage: **0–2 calls per ticket** on the main paths (details in [`code/README.md`](./code/README.md)).
 
 ---
 
@@ -56,11 +56,11 @@ flowchart LR
 | Language | Python 3.11+ |
 | Orchestration | [LangGraph](https://github.com/langchain-ai/langgraph) |
 | Schemas | Pydantic v2 |
-| Embeddings | [sentence-transformers](https://www.sbert.net/) `BAAI/bge-small-en-v1.5` (local, no embedding API) |
-| Dense index | NumPy shards + manifest-based cache invalidation |
+| Embeddings | [sentence-transformers](https://www.sbert.net/) · local inference |
+| Vector / index | NumPy shards + content-addressed manifest |
 | Sparse retrieval | [rank-bm25](https://github.com/dorianbrown/rank_bm25) |
 | Reranker | `mixedbread-ai/mxbai-rerank-xsmall-v1` (optional GPU) |
-| LLM APIs | `anthropic`, `google-genai` (structured output / tool use) |
+| LLM APIs | `anthropic`, `google-genai` |
 | CLI | Click |
 
 ---
@@ -73,32 +73,18 @@ cd HRO
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r code/requirements.txt
-cp code/.env.example .env   # or place .env at repo root or under code/
-# Edit .env: ANTHROPIC_API_KEY=...
-python code/main.py run     # writes support_tickets/output.csv + code/runs/<ts>/
+cp code/.env.example .env
+# Set ANTHROPIC_API_KEY (and optionally GEMINI_API_KEY if using Gemini)
+python code/main.py rebuild-index   # first run or after corpus changes
+python code/main.py run             # → support_tickets/output.csv + run trace
 ```
-
-**Evaluate** against the small labelled sample (confusion matrices + accuracy):
 
 ```bash
-python code/main.py eval
+python code/main.py eval            # labelled sample, metrics report
+python code/main.py trace --run latest
 ```
 
-**Rebuild** the retrieval index after corpus changes:
-
-```bash
-python code/main.py rebuild-index
-```
-
-Details, layout, and tuning knobs: [`code/README.md`](./code/README.md).
-
----
-
-## Configuration & secrets
-
-- **Never commit `.env`.** Use `code/.env.example` as a template.
-- Keys are read with layered `python-dotenv` loading (`repo/.env`, `code/.env`, cwd)—see `hro/llm/client.py`.
-- Switch provider: `HRO_BACKEND=anthropic` (default) or `HRO_BACKEND=gemini`.
+More layout and knobs: [`code/README.md`](./code/README.md). Deeper design notes: [`Summarizer.md`](./Summarizer.md).
 
 ---
 
@@ -106,52 +92,39 @@ Details, layout, and tuning knobs: [`code/README.md`](./code/README.md).
 
 ```text
 .
-├── README.md                 # This file (portfolio entry)
-├── Summarizer.md             # Long-form narrative / interview notes
-├── code/                     # Application package + CLI
+├── README.md
+├── Summarizer.md
+├── LICENSE
+├── code/
 │   ├── main.py
-│   ├── hro/                  # graph, agents, index, llm, corpus, eval
-│   ├── prompts/              # Markdown prompts + few-shots
+│   ├── hro/           # graph, agents, index, llm, corpus, eval, …
+│   ├── prompts/
 │   └── requirements.txt
-├── data/                     # Versioned markdown corpus (per vendor tree)
-├── support_tickets/          # sample + unlabelled CSVs (generate output locally)
-├── problem_statement.md      # Original problem spec (historical)
-└── AGENTS.md                 # Tooling contract from starter (AI agents)
+├── data/              # markdown corpus (per domain)
+├── support_tickets/   # input CSVs (generate output.csv locally; not in git)
+├── problem_statement.md
+└── AGENTS.md
 ```
 
-Generated at runtime (gitignored): `data/index/`, `code/runs/`, `support_tickets/output.csv`.
+Runtime artifacts (gitignored): `data/index/`, `code/runs/`, `support_tickets/output.csv`.
 
 ---
 
-## Scaling & enterprise considerations
+## Production-oriented notes
 
-- **Horizontal scaling:** Stateless workers + shared object store for shards (replace local `data/index/` with S3/GCS + mmap or on-demand loading); partition tickets by `company` or shard key.
-- **Corpus updates:** Bump `CHUNKER_VERSION` / `EMBEDDER_VERSION` in `hro/config.py` when algorithms change so caches invalidate deterministically.
-- **Observability:** Spans are JSON-serializable today—swap `code/runs/` for OpenTelemetry export without changing graph topology.
-- **Governance:** Critic + escalation path reduces “helpful hallucination” risk; stricter orgs can add policy classifiers or human-in-the-loop queues on `escalated` rows.
-
----
-
-## History & attribution
-
-The **folder structure and corpus** descend from the **HackerRank Orchestrate** May 2026 starter (`problem_statement.md`, `AGENTS.md`). The **implementation in `code/`** is original application engineering on top of that corpus: LangGraph graph, hybrid retrieval, critic, and dual LLM backend.
-
-Use the corpus **for research, education, and portfolio demonstration** consistent with the original challenge terms. This repo is **not** an official HackerRank or vendor product.
+- **Scale-out:** Workers can stay stateless; move index shards to shared storage and fan out tickets by domain or shard key.
+- **Cache invalidation:** `CHUNKER_VERSION` / `EMBEDDER_VERSION` in `hro/config.py` bump when chunking or embedding logic changes.
+- **Observability:** Today’s JSONL traces can be bridged to OpenTelemetry without changing the graph shape.
+- **Risk:** Escalation + critic are deliberate guardrails against unsupported claims in regulated-style support.
 
 ---
 
-## Suggested rename for GitHub
+## Corpus note
 
-If you want the slug to match the positioning:
-
-| Slug | Rationale |
-|------|-----------|
-| `grounded-support-triage` | Describes behavior; searchable. |
-| `corpus-triage-langgraph` | Keywords for recruiters. |
-| `HRO` | Short; rename later when the project has a product name. |
+The **markdown tree under `data/`** shipped with the original hackathon starter I used as a base dataset; **all application code under `code/`**, prompts, indexing, graph, and tooling here are **my implementation** on top of that material.
 
 ---
 
 ## License
 
-MIT — see [`LICENSE`](./LICENSE). Third-party markdown in `data/` remains under respective vendors’ terms; this project does not grant rights to redistribute those docs for commercial scraping beyond your own compliance review.
+MIT — [`LICENSE`](./LICENSE). Content in `data/` remains subject to the respective vendors’ terms; use and redistribution of those documents are your responsibility.
