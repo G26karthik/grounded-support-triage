@@ -1,0 +1,90 @@
+{
+  "_comment": "Triage few-shot examples. Sourced from sample_support_tickets.csv. Do NOT add examples drawn from support_tickets.csv (the unlabelled test set).",
+  "examples": [
+    {
+      "id": "sample_test_active",
+      "ticket": {
+        "issue": "I notice that people I assigned the test in October of 2025 have not received new tests. How long do the tests stay active in the system.",
+        "subject": "Test Active in the system",
+        "company": "HackerRank"
+      },
+      "expected": {
+        "verdict": "allow",
+        "request_type": "product_issue",
+        "scope": "in_corpus",
+        "inferred_company": "hackerrank",
+        "retrieval_query": "how long do HackerRank Screen tests stay active; test expiration settings",
+        "language": "en",
+        "intent_summary": "Asking how long Screen tests remain active and how to set expiration."
+      }
+    },
+    {
+      "id": "sample_site_down",
+      "ticket": {
+        "issue": "site is down & none of the pages are accessible",
+        "subject": "",
+        "company": "None"
+      },
+      "expected": {
+        "verdict": "escalate",
+        "request_type": "bug",
+        "scope": "in_corpus",
+        "inferred_company": "none",
+        "retrieval_query": "site outage all pages inaccessible",
+        "language": "en",
+        "intent_summary": "System-wide outage report; needs human routing."
+      }
+    },
+    {
+      "id": "sample_iron_man",
+      "ticket": {
+        "issue": "What is the name of the actor in Iron Man?",
+        "subject": "Urgent, please help",
+        "company": "None"
+      },
+      "expected": {
+        "verdict": "allow",
+        "request_type": "invalid",
+        "scope": "out_of_corpus",
+        "inferred_company": "none",
+        "retrieval_query": "Iron Man actor",
+        "language": "en",
+        "intent_summary": "Trivia question outside support scope."
+      }
+    },
+    {
+      "id": "sample_thank_you",
+      "ticket": {
+        "issue": "Thank you for helping me",
+        "subject": "",
+        "company": "None"
+      },
+      "expected": {
+        "verdict": "allow",
+        "request_type": "invalid",
+        "scope": "conversational",
+        "inferred_company": "none",
+        "retrieval_query": "",
+        "language": "en",
+        "intent_summary": "Acknowledgement; no action needed."
+      }
+    },
+    {
+      "id": "sample_traveller_cheques",
+      "ticket": {
+        "issue": "I bought Visa Traveller's Cheques from Citicorp and they were stolen in Lisbon last night. What do I do?",
+        "subject": "",
+        "company": "Visa"
+      },
+      "expected": {
+        "verdict": "allow",
+        "request_type": "product_issue",
+        "scope": "in_corpus",
+        "inferred_company": "visa",
+        "retrieval_query": "Visa traveller's cheques stolen Citicorp Lisbon report procedure",
+        "language": "en",
+        "intent_summary": "Stolen Visa traveller's cheques; needs issuer contact procedure."
+      }
+    }
+  ]
+}

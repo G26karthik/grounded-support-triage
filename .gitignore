@@ -31,3 +31,11 @@ data/index/
 data/embeddings/
 *.sqlite
 *.db
+
+# batch runs & generated predictions (reproduce with: python code/main.py run)
+code/runs/
+support_tickets/output.csv
+
+# local packaging / contest bundles (not source)
+*.zip
+local/
