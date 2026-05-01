@@ -4,7 +4,7 @@ End-to-end system I built that ingests support tickets, routes them across multi
 
 It is designed with the kind of structure you’d expect in a real internal tool: explicit workflow steps, observability, rate limiting, and an escape hatch when the documentation does not support a safe answer.
 
-**Author:** Karthik · [github.com/G26karthik/HRO](https://github.com/G26karthik/HRO)
+**Author:** G Karthik Koundinya · [github.com/G26karthik](https://github.com/G26karthik)
 
 ---
 
